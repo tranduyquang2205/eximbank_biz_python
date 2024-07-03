@@ -52,14 +52,12 @@ class Transactions(BaseModel):
     account_number: str
     from_date: str
     to_date: str
-    page: int
-    limit: int
     
 @app.post('/get_transactions', tags=["get_transactions"])
 def get_transactions_api(input: Transactions):
     try:
         exb = EXB(input.username, input.password, input.account_number)
-        response = exb.getHistories(input.from_date, input.to_date, input.account_number,input.page,input.limit)
+        response = exb.getHistories(input.from_date, input.to_date, input.account_number)
         return APIResponse.json_format(response)
     except Exception as e:
         response = str(e)
