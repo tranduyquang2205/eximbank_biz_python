@@ -262,7 +262,6 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
             'i': self.Ht(json.dumps(i)),
         }
         result = self.curlPost(self.url['login'], param)
-        print(result)
         if 'fullName' in result and 'isLogin' in result:
             # self.cifNo = result['cifNo']
             self.sessionId = result['tokenId']
@@ -282,7 +281,7 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
             return {
                 'code': 500,
                 'success': False,
-                'message': result['errorMessage']['desc'] if 'errorMessage' in result and 'desc' in result['errorMessage'] else result,
+                'message': result['errorMessage'] if 'errorMessage' in result else result,
                 "param": param,
                 'data': result if result else ""
             }
