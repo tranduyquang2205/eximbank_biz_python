@@ -19,7 +19,7 @@ from Crypto.Random import get_random_bytes
 from datetime import datetime
 
 class EXB:
-    def __init__(self, username, password, account_number):
+    def __init__(self, username, password, account_number,proxy_list=None):
                 # Public key in PEM format
         # Load the public key
         self.public_key = ""
@@ -31,6 +31,7 @@ class EXB:
         self.uuid = ""
         self.signNo = ""
         self.is_login = False
+        self.proxy_list = proxy_list
         self.key_captcha = "CAP-6C2884061D70C08F10D6257F2CA9518C"
         self.file = f"data/{username}.txt"
         self.url = {
@@ -82,7 +83,7 @@ YywFB9DxA8AAsydOGYMCQQDYDDLAlytyG7EefQtDPRlGbFOOJrNRyQG+2KMEl/ti\n\
 Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
 -----END RSA PRIVATE KEY-----"
         self.init_guid()
-        if not os.path.exists(self.file):
+        if not os.path.exists(self.file) or os.path.getsize(self.file) == 0:
             self.username = username
             self.password = password
             self.account_number = account_number
@@ -92,13 +93,45 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
             self.E = ""
             self.cifNo = ""
             self.browserId = hashlib.md5(self.username.encode()).hexdigest()
+            if self.proxy_list:
+                try:
+                    self.proxy_info = self.proxy_list.pop(0)
+                    proxy_host, proxy_port, username_proxy, password_proxy = self.proxy_info.split(':')
+                    self.proxies = {
+                        'http': f'http://{username_proxy}:{password_proxy}@{proxy_host}:{proxy_port}',
+                        'https': f'http://{username_proxy}:{password_proxy}@{proxy_host}:{proxy_port}'
+                    }
+                    
+                except ValueError:
+                    self.proxies = None 
+                except Exception as e:
+                    self.proxies = None
+            else:
+                self.proxies = None
             self.save_data()
             
         else:
             self.parse_data()
+            if not self.proxies:
+                if self.proxy_list:
+                    try:
+                        self.proxy_info = self.proxy_list.pop(0)
+                        proxy_host, proxy_port, username_proxy, password_proxy = self.proxy_info.split(':')
+                        self.proxies = {
+                            'http': f'http://{username_proxy}:{password_proxy}@{proxy_host}:{proxy_port}',
+                            'https': f'http://{username_proxy}:{password_proxy}@{proxy_host}:{proxy_port}'
+                        }
+                        
+                    except ValueError:
+                        self.proxies = None 
+                    except Exception as e:
+                        self.proxies = None
+                else:
+                    self.proxies = None
             self.username = username
             self.password = password
             self.account_number = account_number
+            self.save_data()
             
     def save_data(self):
         data = {
@@ -115,6 +148,7 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
             'signNo': getattr(self, 'signNo', ''),
             'browserId': self.browserId,
             'cifNo': self.cifNo,
+            'proxies':self.proxies
         }
         with open(self.file, 'w') as f:
             json.dump(data, f)
@@ -138,6 +172,7 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
         self.browserId = data.get('browserId', '')
         self.E = data.get('E', '')
         self.cifNo = data.get('cifNo', '')
+        self.proxies = data['proxies']
     def init_guid(self):
         timestamp = str(int(time.time()))
         self.uuid = str(uuid.uuid4())
@@ -211,7 +246,7 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
         'sec-ch-ua-platform': '"Windows"'
         }
 
-        response = self.session.request("POST", url, headers=headers, data=payload)
+        response = self.session.request("POST", url, headers=headers, data=payload,proxies=self.proxies)
         res = response.json()
         if 'ID' in res:
             self.public_key = res['ID']
@@ -236,7 +271,7 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
         }
         if self.sessionId:
             headers['X-Token'] = self.sessionId
-        response = self.session.post(url, headers=headers, data=json.dumps(data))
+        response = self.session.post(url, headers=headers, data=json.dumps(data),proxies=self.proxies)
         # print(response.text)
         result = response.json()
         return result
