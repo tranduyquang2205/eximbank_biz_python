@@ -18,10 +18,11 @@ class LoginDetails(BaseModel):
     username: str
     password: str
     account_number: str
+    proxy_list: list
 @app.post('/login', tags=["login"])
 def login_api(input: LoginDetails):
     try:
-        exb = EXB(input.username, input.password, input.account_number)
+        exb = EXB(input.username, input.password, input.account_number,input.proxy_list)
         response = exb.doLogin()
         return APIResponse.json_format(response)
     except Exception as e:
@@ -32,7 +33,7 @@ def login_api(input: LoginDetails):
 @app.post('/balance', tags=["balance"])
 def confirm_api(input: LoginDetails):
     try:
-        exb = EXB(input.username, input.password, input.account_number)
+        exb = EXB(input.username, input.password, input.account_number,input.proxy_list)
         response = exb.getlistAccount()
         return APIResponse.json_format(response)
     except Exception as e:
@@ -52,12 +53,13 @@ class Transactions(BaseModel):
     account_number: str
     from_date: str
     to_date: str
+    proxy_list: list
     
 @app.post('/get_transactions', tags=["get_transactions"])
 def get_transactions_api(input: Transactions):
     try:
         exb = EXB(input.username, input.password, input.account_number)
-        response = exb.getHistories(input.from_date, input.to_date, input.account_number)
+        response = exb.getHistories(input.from_date, input.to_date, input.account_number,input.proxy_list)
         return APIResponse.json_format(response)
     except Exception as e:
         response = str(e)
