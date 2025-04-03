@@ -17,6 +17,7 @@ from Crypto.Protocol.KDF import PBKDF2
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from datetime import datetime
+from base64 import b64encode
 
 class EXB:
     def __init__(self, username, password, account_number,proxy_list=None):
@@ -145,6 +146,7 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
             'E': getattr(self, 'E', ''),
             'res': getattr(self, 'res', ''),
             'user_id': getattr(self, 'user_id', ''),
+            'cifCode': getattr(self, 'cifCode', ''),
             'signNo': getattr(self, 'signNo', ''),
             'browserId': self.browserId,
             'cifNo': self.cifNo,
@@ -168,6 +170,7 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
         self.cif = data.get('cif', '')
         self.res = data.get('res', '')
         self.user_id = data.get('user_id', '')
+        self.cifCode = data.get('cifCode', '')
         self.signNo = data.get('signNo', '')
         self.browserId = data.get('browserId', '')
         self.E = data.get('E', '')
@@ -190,6 +193,43 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
 
         # Encode the ciphertext as base64
         return base64.b64encode(ciphertext).decode('utf-8')
+    def fix_base64_padding(self,b64: str) -> str:
+        return b64 + "=" * ((4 - len(b64) % 4) % 4)
+
+    def Gt(self,e: str) -> str | None:
+        try:
+            t = self.public_key
+            # Fix incorrect base64 padding if needed
+            t = self.fix_base64_padding(t)
+
+            # Prepare PEM-formatted key
+            pem_key = f"-----BEGIN PUBLIC KEY-----\n{t}\n-----END PUBLIC KEY-----"
+
+            # Load the key
+            public_key = RSA.import_key(pem_key)
+            cipher = PKCS1_v1_5.new(public_key)
+
+            # Convert message to bytes
+            message_bytes = e.encode('utf-8')
+
+            # Calculate max chunk size
+            max_chunk_size = public_key.size_in_bytes() - 11
+
+            encrypted_bytes = b""
+            for i in range(0, len(message_bytes), max_chunk_size):
+                chunk = message_bytes[i:i + max_chunk_size]
+                encrypted_chunk = cipher.encrypt(chunk)
+                encrypted_bytes += encrypted_chunk
+
+            return b64encode(encrypted_bytes).decode('utf-8')
+
+        except Exception as ex:
+            print("Error encrypting data:", ex)
+            return None
+
+        except Exception as ex:
+            print("Error encrypting data:", ex)
+            return None
     def Kt(self):
         def replace_char(e):
             t = int(16 * random.random())
@@ -272,7 +312,7 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
         if self.sessionId:
             headers['X-Token'] = self.sessionId
         response = self.session.post(url, headers=headers, data=json.dumps(data),proxies=self.proxies)
-        # print(response.text)
+        print(response.text)
         result = response.json()
         return result
 
@@ -281,20 +321,22 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
     def doLogin(self):
         self.get_key_site()
         self.request_id = self.generate_request_id()
-        data = {
-            "userId": self.username,
-            "passWord": self.password,
-            "userType": "O",
-            "captcha": None
-        }
         i = {
             "applicationVersion": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0",
             "deviceId": self.deviceId,
             "platformOS": "Win32"
         }
+        data = {
+            "userId": self.username,
+            "passWord": self.password,
+            "userType": "O",
+            "captcha": None,
+            "deviceInfo": i
+        }
+    
         param = {
-            'data': self.Ht(json.dumps(data)),
-            'i': self.Ht(json.dumps(i)),
+            'data': self.Gt(json.dumps(data)),
+            # 'i': self.Ht(json.dumps(i)),
         }
         result = self.curlPost(self.url['login'], param)
         if 'fullName' in result and 'isLogin' in result:
@@ -302,6 +344,7 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
             self.sessionId = result['tokenId']
             self.userInfo = result
             self.user_id = result['userId']
+            self.cifCode = result['cifCode']
             self.save_data()
             self.is_login = True
             return {
@@ -372,18 +415,19 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
             login = self.doLogin()
             if not login['success']:
                 return login
-        # permiss = self.getPermissions()
+        permiss = self.getPermissions()
         # print (permiss)
         # getNoteByMenuId = self.getNoteByMenuId()
         # print (getNoteByMenuId)
         data = {
-            "cifCode": self.user_id,
+            "cifCode": self.cifCode,
             "userId": self.user_id,
             "tranCode": "IBSA9999",
             "cusType": "O",
             "viewBalance": "Y",
             "certId": self.user_id
         }
+        print(data)
         e = json.dumps(data)
         r = self.Kt()
         i = self.Ut(r,e)
@@ -423,6 +467,8 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
                     return login
         if not self.is_get_user:
             self.getlistAccount(account_number)
+
+            
         data = {
             "accountNo": account_number,
             "fromDateStr": datetime.strptime(fromDate, "%d/%m/%Y").strftime("%Y%m%d000000"),
@@ -432,6 +478,7 @@ Yr4ZPChxNrik1CFLxfkesoReXN8kU/8918D0GLNeVt/C\n\
             "signNo": self.signNo,
             "certId": self.user_id
         }
+        print(data)
         e = json.dumps(data)
         r = self.Kt()
         i = self.Ut(r,e)
